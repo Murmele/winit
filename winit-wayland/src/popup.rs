@@ -23,7 +23,7 @@ use winit_core::window::{
 
 #[derive(Debug)]
 pub struct Popup {
-    // The state of the popup.
+    /// The state of the popup.
     popup_state: Arc<Mutex<WindowState>>,
 
     /// Window id.
@@ -108,7 +108,7 @@ impl Popup {
                     &event_loop_window_target.queue_handle,
                     &state,
                     size,
-                    WindowType::Popup((popup.clone(), None)),
+                    WindowType::Popup((popup.clone(), positioner, None)),
                     attributes.preferred_theme,
                     false,
                     scale_factor,
@@ -214,11 +214,10 @@ impl CoreWindow for Popup {
     }
 
     fn request_surface_size(&self, size: Size) -> Option<PhysicalSize<u32>> {
-        // let mut popup_state = self.popup_state.lock().unwrap();
-        // let new_size = popup_state.request_surface_size(size);
-        // self.request_redraw();
-        // Some(new_size)
-        None
+        let mut popup_state = self.popup_state.lock().unwrap();
+        popup_state.request_surface_size(size);
+        self.request_redraw();
+        Some(size.to_physical(popup_state.scale_factor()))
     }
 
     fn outer_size(&self) -> PhysicalSize<u32> {
