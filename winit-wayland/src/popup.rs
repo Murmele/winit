@@ -171,14 +171,14 @@ impl CoreWindow for Popup {
         // // processed by the loop, because if at this point the value was `true` it could only
         // // mean that the loop still haven't dispatched the value to the client and will do
         // // eventually, resetting it to `false`.
-        // if self
-        //     .window_requests
-        //     .redraw_requested
-        //     .compare_exchange(false, true, Ordering::Relaxed, Ordering::Relaxed)
-        //     .is_ok()
-        // {
-        //     self.event_loop_awakener.ping();
-        // }
+        if self
+            .window_requests
+            .redraw_requested
+            .compare_exchange(false, true, Ordering::Relaxed, Ordering::Relaxed)
+            .is_ok()
+        {
+            self.event_loop_awakener.ping();
+        }
     }
 
     #[inline]
