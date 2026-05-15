@@ -142,7 +142,8 @@ impl Window {
         // Set transparency hint.
         window_state.set_transparent(attributes.transparent);
 
-        window_state.set_blur(attributes.blur);
+        // Set blur.
+        let _ = window_state.set_blur(attributes.blur);
 
         // Set the decorations hint.
         window_state.set_decorate(attributes.decorations);
@@ -516,7 +517,9 @@ impl CoreWindow for Window {
 
     #[inline]
     fn set_blur(&self, blur: bool) {
-        self.window_state.lock().unwrap().set_blur(blur);
+        if self.window_state.lock().unwrap().set_blur(blur) {
+            self.request_redraw();
+        }
     }
 
     #[inline]
