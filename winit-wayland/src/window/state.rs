@@ -335,7 +335,7 @@ impl WindowState {
         if let WindowType::Popup((_, _, last_configure)) = &mut self.window {
             *last_configure = Some(configure)
         } else {
-            // This should never happen
+            // This should never happen, because we start configuring with a popup
             assert!(false);
             return;
         }
