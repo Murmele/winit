@@ -22,9 +22,9 @@ use sctk::reexports::protocols::wp::viewporter::client::wp_viewport::WpViewport;
 use sctk::reexports::protocols::xdg::shell::client::xdg_toplevel::ResizeEdge as XdgResizeEdge;
 use sctk::seat::pointer::{PointerDataExt, ThemedPointer};
 use sctk::shell::WaylandSurface;
+use sctk::shell::xdg::XdgPositioner;
 use sctk::shell::xdg::XdgSurface;
 use sctk::shell::xdg::popup::{Popup, PopupConfigure};
-use sctk::shell::xdg::XdgPositioner;
 use sctk::shell::xdg::window::{DecorationMode, Window, WindowConfigure};
 use sctk::shm::Shm;
 use sctk::shm::slot::SlotPool;
@@ -520,39 +520,41 @@ impl WindowState {
 
     /// Start interacting drag resize.
     pub fn drag_resize_window(&self, direction: ResizeDirection) -> Result<(), RequestError> {
-        if let WindowType::Window((window, _)) = &self.window {
-            let xdg_toplevel = window.xdg_toplevel();
+        match &self.window {
+            WindowType::Window((window, _)) => {
+                let xdg_toplevel = window.xdg_toplevel();
 
-            // TODO(kchibisov) handle touch serials.
-            self.apply_on_pointer(|_, data| {
-                let serial = data.latest_button_serial();
-                let seat = data.seat();
-                xdg_toplevel.resize(seat, serial, resize_direction_to_xdg(direction));
-            });
-            Ok(())
-        } else {
-            // Popup
-            Err(RequestError::NotSupported(NotSupportedError::new(
+                // TODO(kchibisov) handle touch serials.
+                self.apply_on_pointer(|_, data| {
+                    let serial = data.latest_button_serial();
+                    let seat = data.seat();
+                    xdg_toplevel.resize(seat, serial, resize_direction_to_xdg(direction));
+                });
+                Ok(())
+            },
+            WindowType::Popup(..) => Err(RequestError::NotSupported(NotSupportedError::new(
                 "Drag resize for popup not supported",
-            )))
+            ))),
         }
     }
 
     /// Start the window drag.
     pub fn drag_window(&self) -> Result<(), RequestError> {
-        if let WindowType::Window((window, _)) = &self.window {
-            let xdg_toplevel = window.xdg_toplevel();
-            // TODO(kchibisov) handle touch serials.
-            self.apply_on_pointer(|_, data| {
-                let serial = data.latest_button_serial();
-                let seat = data.seat();
-                xdg_toplevel._move(seat, serial);
-            });
+        match &self.window {
+            WindowType::Window((window, ..)) => {
+                let xdg_toplevel = window.xdg_toplevel();
+                // TODO(kchibisov) handle touch serials.
+                self.apply_on_pointer(|_, data| {
+                    let serial = data.latest_button_serial();
+                    let seat = data.seat();
+                    xdg_toplevel._move(seat, serial);
+                });
 
-            Ok(())
-        } else {
-            // Popup
-            Err(RequestError::NotSupported(NotSupportedError::new("Drag for popup not supported")))
+                Ok(())
+            },
+            WindowType::Popup(..) => Err(RequestError::NotSupported(NotSupportedError::new(
+                "Drag for popup not supported",
+            ))),
         }
     }
 
@@ -568,35 +570,36 @@ impl WindowState {
         window_id: WindowId,
         updates: &mut Vec<WindowCompositorUpdate>,
     ) -> Option<bool> {
-        if let WindowType::Window((window, _)) = &self.window {
-            match self.frame.as_mut()?.on_click(timestamp, click, pressed)? {
-                FrameAction::Minimize => window.set_minimized(),
-                FrameAction::Maximize => window.set_maximized(),
-                FrameAction::UnMaximize => window.unset_maximized(),
-                FrameAction::Close => WinitState::queue_close(updates, window_id),
-                FrameAction::Move => self.has_pending_move = Some(serial),
-                FrameAction::Resize(edge) => {
-                    let edge = match edge {
-                        ResizeEdge::None => XdgResizeEdge::None,
-                        ResizeEdge::Top => XdgResizeEdge::Top,
-                        ResizeEdge::Bottom => XdgResizeEdge::Bottom,
-                        ResizeEdge::Left => XdgResizeEdge::Left,
-                        ResizeEdge::TopLeft => XdgResizeEdge::TopLeft,
-                        ResizeEdge::BottomLeft => XdgResizeEdge::BottomLeft,
-                        ResizeEdge::Right => XdgResizeEdge::Right,
-                        ResizeEdge::TopRight => XdgResizeEdge::TopRight,
-                        ResizeEdge::BottomRight => XdgResizeEdge::BottomRight,
-                        _ => return None,
-                    };
-                    window.resize(seat, serial, edge);
-                },
-                FrameAction::ShowMenu(x, y) => window.show_window_menu(seat, serial, (x, y)),
-                _ => (),
-            };
+        match &self.window {
+            WindowType::Window((window, ..)) => {
+                match self.frame.as_mut()?.on_click(timestamp, click, pressed)? {
+                    FrameAction::Minimize => window.set_minimized(),
+                    FrameAction::Maximize => window.set_maximized(),
+                    FrameAction::UnMaximize => window.unset_maximized(),
+                    FrameAction::Close => WinitState::queue_close(updates, window_id),
+                    FrameAction::Move => self.has_pending_move = Some(serial),
+                    FrameAction::Resize(edge) => {
+                        let edge = match edge {
+                            ResizeEdge::None => XdgResizeEdge::None,
+                            ResizeEdge::Top => XdgResizeEdge::Top,
+                            ResizeEdge::Bottom => XdgResizeEdge::Bottom,
+                            ResizeEdge::Left => XdgResizeEdge::Left,
+                            ResizeEdge::TopLeft => XdgResizeEdge::TopLeft,
+                            ResizeEdge::BottomLeft => XdgResizeEdge::BottomLeft,
+                            ResizeEdge::Right => XdgResizeEdge::Right,
+                            ResizeEdge::TopRight => XdgResizeEdge::TopRight,
+                            ResizeEdge::BottomRight => XdgResizeEdge::BottomRight,
+                            _ => return None,
+                        };
+                        window.resize(seat, serial, edge);
+                    },
+                    FrameAction::ShowMenu(x, y) => window.show_window_menu(seat, serial, (x, y)),
+                    _ => (),
+                };
 
-            Some(false)
-        } else {
-            None
+                Some(false)
+            },
+            WindowType::Popup(..) => None,
         }
     }
 
@@ -615,25 +618,26 @@ impl WindowState {
         x: f64,
         y: f64,
     ) -> Option<CursorIcon> {
-        if let WindowType::Window((window, _)) = &self.window {
-            // Take the serial if we had any, so it doesn't stick around.
-            let serial = self.has_pending_move.take();
+        match &self.window {
+            WindowType::Window((window, ..)) => {
+                // Take the serial if we had any, so it doesn't stick around.
+                let serial = self.has_pending_move.take();
 
-            if let Some(frame) = self.frame.as_mut() {
-                let cursor = frame.click_point_moved(timestamp, &surface.id(), x, y);
-                // If we have a cursor change, that means that cursor is over the decorations,
-                // so try to apply move.
-                if let Some(serial) = cursor.is_some().then_some(serial).flatten() {
-                    window.move_(seat, serial);
-                    None
+                if let Some(frame) = self.frame.as_mut() {
+                    let cursor = frame.click_point_moved(timestamp, &surface.id(), x, y);
+                    // If we have a cursor change, that means that cursor is over the decorations,
+                    // so try to apply move.
+                    if let Some(serial) = cursor.is_some().then_some(serial).flatten() {
+                        window.move_(seat, serial);
+                        None
+                    } else {
+                        cursor
+                    }
                 } else {
-                    cursor
+                    None
                 }
-            } else {
-                None
-            }
-        } else {
-            None
+            },
+            WindowType::Popup(..) => None,
         }
     }
 
@@ -699,19 +703,20 @@ impl WindowState {
 
     #[inline]
     pub fn is_decorated(&mut self) -> bool {
-        if let WindowType::Window((_, last_configure)) = &mut self.window {
-            let csd = last_configure
-                .as_ref()
-                .map(|configure| configure.decoration_mode == DecorationMode::Client)
-                .unwrap_or(false);
-            if let Some(frame) = csd.then_some(self.frame.as_ref()).flatten() {
-                !frame.is_hidden()
-            } else {
-                // Server side decorations.
-                true
-            }
-        } else {
-            false
+        match &mut self.window {
+            WindowType::Window((_, last_configuration)) => {
+                let csd = last_configuration
+                    .as_ref()
+                    .map(|configure| configure.decoration_mode == DecorationMode::Client)
+                    .unwrap_or(false);
+                if let Some(frame) = csd.then_some(self.frame.as_ref()).flatten() {
+                    !frame.is_hidden()
+                } else {
+                    // Server side decorations.
+                    true
+                }
+            },
+            WindowType::Popup(..) => false, // Popup window does not have any decoration
         }
     }
 
@@ -798,12 +803,12 @@ impl WindowState {
                 if last_configure.as_ref().map(Self::is_stateless).unwrap_or(true) {
                     self.resize(surface_size.to_logical(self.scale_factor()))
                 }
-            }
+            },
             WindowType::Popup((popup, positioner, _)) => {
                 let size = surface_size.to_logical(self.scale_factor());
                 positioner.set_size(size.width, size.height);
                 popup.reposition(positioner, 0);
-            }
+            },
         }
 
         logical_to_physical_rounded(self.surface_size(), self.scale_factor())
@@ -814,10 +819,10 @@ impl WindowState {
         self.size = surface_size;
 
         // Update the stateless size.
-        if let WindowType::Window((_, last_configure)) = &mut self.window {
-            if Some(true) == last_configure.as_ref().map(Self::is_stateless) {
-                self.stateless_size = surface_size;
-            }
+        if let WindowType::Window((_, last_configure)) = &mut self.window
+            && Some(true) == last_configure.as_ref().map(Self::is_stateless)
+        {
+            self.stateless_size = surface_size;
         }
 
         // Update the inner frame.
@@ -1138,24 +1143,29 @@ impl WindowState {
 
         self.decorate = decorate;
 
-        if let WindowType::Window((window, last_configure)) = &self.window {
-            match last_configure.as_ref().map(|configure| configure.decoration_mode) {
-                Some(DecorationMode::Server) if !self.decorate => {
-                    // To disable decorations we should request client and hide the frame.
-                    window.request_decoration_mode(Some(DecorationMode::Client))
-                },
-                _ if self.decorate && self.prefer_csd => {
-                    window.request_decoration_mode(Some(DecorationMode::Client))
-                },
-                _ if self.decorate => window.request_decoration_mode(Some(DecorationMode::Server)),
-                _ => (),
-            }
+        match &self.window {
+            WindowType::Window((window, last_configure)) => {
+                match last_configure.as_ref().map(|configure| configure.decoration_mode) {
+                    Some(DecorationMode::Server) if !self.decorate => {
+                        // To disable decorations we should request client and hide the frame.
+                        window.request_decoration_mode(Some(DecorationMode::Client))
+                    },
+                    _ if self.decorate && self.prefer_csd => {
+                        window.request_decoration_mode(Some(DecorationMode::Client))
+                    },
+                    _ if self.decorate => {
+                        window.request_decoration_mode(Some(DecorationMode::Server))
+                    },
+                    _ => (),
+                }
 
-            if let Some(frame) = self.frame.as_mut() {
-                frame.set_hidden(!decorate);
-                // Force the resize.
-                self.resize(self.size);
-            }
+                if let Some(frame) = self.frame.as_mut() {
+                    frame.set_hidden(!decorate);
+                    // Force the resize.
+                    self.resize(self.size);
+                }
+            },
+            WindowType::Popup(..) => (), // Popup does not have any decoration
         }
     }
 
@@ -1290,8 +1300,9 @@ impl WindowState {
             frame.set_title(&title);
         }
 
-        if let WindowType::Window((window, _)) = &self.window {
-            window.set_title(&title);
+        match &self.window {
+            WindowType::Window((window, ..)) => window.set_title(&title),
+            WindowType::Popup(..) => (), // Popup does not have any title
         }
         self.title = title;
     }
