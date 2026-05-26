@@ -118,6 +118,26 @@ impl Window {
         self.window_state.lock().unwrap()
     }
 
+    // If we have a popup the position is relative to the parent window and not
+    // relative to the screen. Therefore we have to translate it from the parent
+    // coordinate system to the display coordinate system
+    fn translate_outer_position(&self, position: Position) -> (i32, i32) {
+        let position = position.to_physical::<i32>(self.scale_factor());
+        let mut point = POINT { x: position.x, y: position.y };
+
+        let window_flags = self.window_state_lock().window_flags;
+        if window_flags.contains(WindowFlags::POPUP) && !window_flags.contains(WindowFlags::CHILD) {
+            let parent = unsafe { GetParent(self.hwnd()) };
+            if !parent.is_null() {
+                unsafe {
+                    ClientToScreen(parent, &mut point);
+                }
+            }
+        }
+
+        (point.x, point.y)
+    }
+
     /// Returns the `hwnd` of this window.
     pub fn hwnd(&self) -> HWND {
         self.window.hwnd()
@@ -483,7 +503,7 @@ impl CoreWindow for Window {
     }
 
     fn set_outer_position(&self, position: Position) {
-        let (x, y): (i32, i32) = position.to_physical::<i32>(self.scale_factor()).into();
+        let (x, y) = self.translate_outer_position(position);
 
         let window_state = Arc::clone(&self.window_state);
         let window = self.window;
