@@ -391,7 +391,7 @@ impl WindowAttributes {
 
     /// Sets the window type of the object
     ///
-    /// Currently only wayland is using this type. On X11 popups are also just normal windows
+    /// Currently Wayland and Windows use this type. On X11 popups are also just normal windows.
     /// Note: If the type is set to `WindowType::Popup` the parent must be set as well with
     /// `with_parent_window()`.
     pub fn with_type(mut self, window_type: WindowType) -> Self {
