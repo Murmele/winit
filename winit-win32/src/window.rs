@@ -1367,8 +1367,15 @@ unsafe fn init(
     let class_name = util::encode_wide(&win_attributes.class_name);
     unsafe { register_window_class(&class_name) };
 
+    let is_popup = attributes.window_type == WindowType::Popup;
     let mut window_flags = WindowFlags::empty();
-    window_flags.set(WindowFlags::MARKER_DECORATIONS, attributes.decorations);
+    if is_popup {
+        window_flags.set(WindowFlags::POPUP, true);
+        window_flags.set(WindowFlags::MARKER_DECORATIONS, false);
+        window_flags.set(WindowFlags::ON_TASKBAR, false);
+    } else {
+        window_flags.set(WindowFlags::MARKER_DECORATIONS, attributes.decorations);
+    }
     window_flags.set(WindowFlags::MARKER_UNDECORATED_SHADOW, win_attributes.decoration_shadow);
     window_flags
         .set(WindowFlags::ALWAYS_ON_TOP, attributes.window_level == WindowLevel::AlwaysOnTop);
@@ -1384,13 +1391,19 @@ unsafe fn init(
     window_flags.set(WindowFlags::CLOSABLE, true);
     window_flags.set(WindowFlags::CLIP_CHILDREN, win_attributes.clip_children);
 
+    if is_popup {
+        attributes.enabled_buttons = WindowButtons::empty();
+    }
+
     let mut fallback_parent = || match win_attributes.owner {
         Some(parent) => {
             window_flags.set(WindowFlags::POPUP, true);
             Some(parent)
         },
         None => {
-            window_flags.set(WindowFlags::ON_TASKBAR, true);
+            if !is_popup {
+                window_flags.set(WindowFlags::ON_TASKBAR, true);
+            }
             None
         },
     };
