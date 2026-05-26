@@ -36,7 +36,7 @@ use windows_sys::Win32::UI::Input::Touch::{RegisterTouchWindow, TWF_WANTPALM};
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     CS_HREDRAW, CS_VREDRAW, CW_USEDEFAULT, CreateWindowExW, EnableMenuItem, FLASHW_ALL,
     FLASHW_STOP, FLASHW_TIMERNOFG, FLASHW_TRAY, FLASHWINFO, FlashWindowEx, GWLP_HINSTANCE,
-    GetClientRect, GetCursorPos, GetForegroundWindow, GetSystemMenu, GetSystemMetrics,
+    GetClientRect, GetCursorPos, GetForegroundWindow, GetParent, GetSystemMenu, GetSystemMetrics,
     GetWindowPlacement, GetWindowTextLengthW, GetWindowTextW, HTBOTTOM, HTBOTTOMLEFT,
     HTBOTTOMRIGHT, HTCAPTION, HTLEFT, HTRIGHT, HTTOP, HTTOPLEFT, HTTOPRIGHT, IsWindowVisible,
     LoadCursorW, MENU_ITEM_STATE, MF_BYCOMMAND, MFS_DISABLED, MFS_ENABLED, NID_READY, PM_NOREMOVE,
@@ -54,7 +54,7 @@ use winit_core::monitor::{Fullscreen, MonitorHandle as CoreMonitorHandle, Monito
 use winit_core::window::{
     CursorGrabMode, ImeCapabilities, ImeRequest, ImeRequestError, ResizeDirection, Theme,
     UserAttentionType, Window as CoreWindow, WindowAttributes, WindowButtons, WindowId,
-    WindowLevel,
+    WindowLevel, WindowType,
 };
 
 use crate::dark_mode::try_theme;
@@ -1430,8 +1430,9 @@ unsafe fn init(
 
     let parent = match attributes.parent_window() {
         Some(rwh_06::RawWindowHandle::Win32(handle)) => {
-            window_flags.set(WindowFlags::CHILD, true);
-            if win_attributes.menu.is_some() {
+            if !is_popup {
+                window_flags.set(WindowFlags::CHILD, true);
+            }
                 warn!("Setting a menu on a child window is unsupported");
             }
             Some(handle.hwnd.get() as HWND)
