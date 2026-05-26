@@ -372,7 +372,6 @@ impl PopupHandler for WinitState {
 
     fn done(&mut self, _: &Connection, _: &QueueHandle<Self>, popup: &XdgPopup) {
         let window_id = super::make_wid(popup.wl_surface());
-        println!("Destroying popup with id: {:?}", window_id);
         Self::queue_close(&mut self.window_compositor_updates, window_id);
     }
 }
