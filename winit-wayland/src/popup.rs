@@ -1,4 +1,5 @@
 use super::ActiveEventLoop;
+use super::event_loop::sink::EventSink;
 use crate::window::WindowRequests;
 use crate::window::state::{WindowState, WindowType};
 use core::sync::atomic::Ordering;
@@ -14,6 +15,7 @@ use wayland_client::protocol::wl_display::WlDisplay;
 use wayland_protocols::xdg::shell::client::xdg_positioner::{Anchor, Gravity};
 use winit_core::cursor::Cursor;
 use winit_core::error::{NotSupportedError, RequestError};
+use winit_core::event::{Ime, WindowEvent};sd
 use winit_core::monitor::{Fullscreen, MonitorHandle as CoreMonitorHandle};
 use winit_core::window::{
     CursorGrabMode, ImeCapabilities, ImeRequest, ImeRequestError, ResizeDirection, Theme,
@@ -36,6 +38,9 @@ pub struct Popup {
     /// Window requests to the event loop.
     /// Used for example to close the popup
     window_requests: Arc<WindowRequests>,
+
+    /// The event sink to deliver synthetic events.
+    window_events_sink: Arc<Mutex<EventSink>>,
 
     /// Source to wake-up the event-loop for window requests.
     event_loop_awakener: calloop::ping::Ping,
@@ -134,6 +139,9 @@ impl Popup {
             let window_requests = Arc::new(window_requests);
             state.window_requests.get_mut().insert(window_id, window_requests.clone());
 
+            // Setup the event sync to insert `WindowEvents` right from the window.
+            let window_events_sink = state.window_events_sink.clone();
+
             let mut wayland_source = event_loop_window_target.wayland_dispatcher.as_source_mut();
             let event_queue = wayland_source.queue();
             // Do a roundtrip.
@@ -144,7 +152,9 @@ impl Popup {
                 event_queue.blocking_dispatch(&mut state).map_err(|err| os_error!(err))?;
             }
 
+            // Wake-up event loop, so it'll send initial redraw requested.
             let event_loop_awakener = event_loop_window_target.event_loop_awakener.clone();
+            event_loop_awakener.ping();
 
             Ok(Self {
                 popup_state,
@@ -152,10 +162,11 @@ impl Popup {
                 display: event_loop_window_target.handle.connection.display().clone(),
                 event_loop_awakener,
                 window_requests,
+                window_events_sink,
             })
         } else {
             Err(RequestError::NotSupported(NotSupportedError::new(
-                "Not a wayland window handle passed",
+                "A Popup requires a parent wayland window handle",
             )))
         }
     }
@@ -167,10 +178,10 @@ impl CoreWindow for Popup {
     }
 
     fn request_redraw(&self) {
-        // // NOTE: try to not wake up the loop when the event was already scheduled and not yet
-        // // processed by the loop, because if at this point the value was `true` it could only
-        // // mean that the loop still haven't dispatched the value to the client and will do
-        // // eventually, resetting it to `false`.
+        // NOTE: try to not wake up the loop when the event was already scheduled and not yet
+        // processed by the loop, because if at this point the value was `true` it could only
+        // mean that the loop still haven't dispatched the value to the client and will do
+        // eventually, resetting it to `false`.
         if self
             .window_requests
             .redraw_requested
@@ -187,7 +198,7 @@ impl CoreWindow for Popup {
     }
 
     fn pre_present_notify(&self) {
-        // self.popup_state.lock().unwrap().request_frame_callback();
+        self.popup_state.lock().unwrap().request_frame_callback();
     }
 
     fn reset_dead_keys(&self) {
@@ -221,10 +232,9 @@ impl CoreWindow for Popup {
     }
 
     fn outer_size(&self) -> PhysicalSize<u32> {
-        // let popup_state = self.popup_state.lock().unwrap();
-        // let scale_factor = popup_state.scale_factor();
-        // super::logical_to_physical_rounded(popup_state.outer_size(), scale_factor)
-        PhysicalSize::new(100, 100)
+        let popup_state = self.popup_state.lock().unwrap();
+        let scale_factor = popup_state.scale_factor();
+        super::logical_to_physical_rounded(popup_state.outer_size(), scale_factor)
     }
 
     fn safe_area(&self) -> PhysicalInsets<u32> {
@@ -232,37 +242,36 @@ impl CoreWindow for Popup {
     }
 
     fn set_min_surface_size(&self, min_size: Option<Size>) {
-        // let scale_factor = self.scale_factor();
-        // let min_size = min_size.map(|size| size.to_logical(scale_factor));
-        // self.state.lock().unwrap().set_min_surface_size(min_size);
-        // // NOTE: Requires commit to be applied.
-        // self.request_redraw();
+        let scale_factor = self.scale_factor();
+        let min_size = min_size.map(|size| size.to_logical(scale_factor));
+        self.popup_state.lock().unwrap().set_min_surface_size(min_size);
+        // NOTE: Requires commit to be applied.
+        self.request_redraw();
     }
 
     /// Set the maximum surface size for the window.
     #[inline]
     fn set_max_surface_size(&self, max_size: Option<Size>) {
-        // let scale_factor = self.scale_factor();
-        // let max_size = max_size.map(|size| size.to_logical(scale_factor));
-        // self.popup_state.lock().unwrap().set_max_surface_size(max_size);
-        // // NOTE: Requires commit to be applied.
-        // self.request_redraw();
+        let scale_factor = self.scale_factor();
+        let max_size = max_size.map(|size| size.to_logical(scale_factor));
+        self.popup_state.lock().unwrap().set_max_surface_size(max_size);
+        // NOTE: Requires commit to be applied.
+        self.request_redraw();
     }
 
     fn surface_resize_increments(&self) -> Option<PhysicalSize<u32>> {
-        // let popup_state = self.popup_state.lock().unwrap();
-        // let scale_factor = popup_state.scale_factor();
-        // popup_state
-        //     .resize_increments()
-        //     .map(|size| super::logical_to_physical_rounded(size, scale_factor))
-        None
+        let popup_state = self.popup_state.lock().unwrap();
+        let scale_factor = popup_state.scale_factor();
+        popup_state
+            .resize_increments()
+            .map(|size| super::logical_to_physical_rounded(size, scale_factor))
     }
 
     fn set_surface_resize_increments(&self, increments: Option<Size>) {
-        // let mut popup_state = self.popup_state.lock().unwrap();
-        // let scale_factor = popup_state.scale_factor();
-        // let increments = increments.map(|size| size.to_logical(scale_factor));
-        // popup_state.set_resize_increments(increments);
+        let mut popup_state = self.popup_state.lock().unwrap();
+        let scale_factor = popup_state.scale_factor();
+        let increments = increments.map(|size| size.to_logical(scale_factor));
+        popup_state.set_resize_increments(increments);
     }
 
     fn set_title(&self, title: &str) {
@@ -282,16 +291,12 @@ impl CoreWindow for Popup {
         None
     }
 
-    fn set_resizable(&self, resizable: bool) {
-        // if self.popup_state.lock().unwrap().set_resizable(resizable) {
-        //     // NOTE: Requires commit to be applied.
-        //     self.request_redraw();
-        // }
+    fn set_resizable(&self, _resizable: bool) {
+        // A popup cannot be resized with the mouse
     }
 
     fn is_resizable(&self) -> bool {
-        // TODO
-        // self.popup_state.lock().unwrap().resizable()
+        // A popup cannot be resized with the mouse
         false
     }
 
@@ -322,7 +327,7 @@ impl CoreWindow for Popup {
         false
     }
 
-    fn set_fullscreen(&self, fullscreen: Option<Fullscreen>) {
+    fn set_fullscreen(&self, _fullscreen: Option<Fullscreen>) {
         // Not possible for popups
     }
 
@@ -337,76 +342,76 @@ impl CoreWindow for Popup {
 
     #[inline]
     fn set_blur(&self, blur: bool) {
-        // self.popup_state.lock().unwrap().set_blur(blur);
+        self.popup_state.lock().unwrap().set_blur(blur);
     }
 
     #[inline]
-    fn set_decorations(&self, decorate: bool) {
-        // self.popup_state.lock().unwrap().set_decorate(decorate)
+    fn set_decorations(&self, _decorate: bool) {
+        // Popup does not support decorations
     }
 
     #[inline]
     fn is_decorated(&self) -> bool {
-        // self.popup_state.lock().unwrap().is_decorated()
+        // Popup does not support decorations
         false
     }
 
-    fn set_window_level(&self, _level: WindowLevel) {}
+    fn set_window_level(&self, _level: WindowLevel) {
+        // Popup does not have a window level
+    }
 
-    fn set_window_icon(&self, window_icon: Option<winit_core::icon::Icon>) {
-        // self.popup_state.lock().unwrap().set_window_icon(window_icon)
+    fn set_window_icon(&self, _window_icon: Option<winit_core::icon::Icon>) {
+        // Popup does not have a window icon
     }
 
     #[inline]
     fn request_ime_update(&self, request: ImeRequest) -> Result<(), ImeRequestError> {
-        // let state_changed = self.popup_state.lock().unwrap().request_ime_update(request)?;
+        let state_changed = self.popup_state.lock().unwrap().request_ime_update(request)?;
 
-        // if let Some(allowed) = state_changed {
-        //     let event = WindowEvent::Ime(if allowed { Ime::Enabled } else { Ime::Disabled });
-        //     self.window_events_sink.lock().unwrap().push_window_event(event, self.window_id);
-        //     self.event_loop_awakener.ping();
-        // }
+        if let Some(allowed) = state_changed {
+            let event = WindowEvent::Ime(if allowed { Ime::Enabled } else { Ime::Disabled });
+            self.window_events_sink.lock().unwrap().push_window_event(event, self.window_id);
+            self.event_loop_awakener.ping();
+        }
 
         Ok(())
     }
 
     #[inline]
     fn ime_capabilities(&self) -> Option<ImeCapabilities> {
-        // self.popup_state.lock().unwrap().ime_allowed()
-        None
+        self.popup_state.lock().unwrap().ime_allowed()
     }
 
     fn focus_window(&self) {}
 
     fn has_focus(&self) -> bool {
-        // self.popup_state.lock().unwrap().has_focus()
-        false
+        self.popup_state.lock().unwrap().has_focus()
     }
 
     fn request_user_attention(&self, request_type: Option<UserAttentionType>) {
-        // let xdg_activation = match self.xdg_activation.as_ref() {
-        //     Some(xdg_activation) => xdg_activation,
-        //     None => {
-        //         warn!("`request_user_attention` isn't supported");
-        //         return;
-        //     },
-        // };
+        let xdg_activation = match self.xdg_activation.as_ref() {
+            Some(xdg_activation) => xdg_activation,
+            None => {
+                warn!("`request_user_attention` isn't supported");
+                return;
+            },
+        };
 
-        // // Urgency is only removed by the compositor and there's no need to raise urgency when it
-        // // was already raised.
-        // if request_type.is_none() || self.attention_requested.load(Ordering::Relaxed) {
-        //     return;
-        // }
+        // Urgency is only removed by the compositor and there's no need to raise urgency when it
+        // was already raised.
+        if request_type.is_none() || self.attention_requested.load(Ordering::Relaxed) {
+            return;
+        }
 
-        // self.attention_requested.store(true, Ordering::Relaxed);
-        // let surface = self.surface().clone();
-        // let data = XdgActivationTokenData::Attention((
-        //     surface.clone(),
-        //     Arc::downgrade(&self.attention_requested),
-        // ));
-        // let xdg_activation_token = xdg_activation.get_activation_token(&self.queue_handle, data);
-        // xdg_activation_token.set_surface(&surface);
-        // xdg_activation_token.commit();
+        self.attention_requested.store(true, Ordering::Relaxed);
+        let surface = self.surface().clone();
+        let data = XdgActivationTokenData::Attention((
+            surface.clone(),
+            Arc::downgrade(&self.attention_requested),
+        ));
+        let xdg_activation_token = xdg_activation.get_activation_token(&self.queue_handle, data);
+        xdg_activation_token.set_surface(&surface);
+        xdg_activation_token.commit();
     }
 
     fn set_theme(&self, theme: Option<Theme>) {

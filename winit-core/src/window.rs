@@ -47,6 +47,7 @@ impl fmt::Debug for WindowId {
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
+#[non_exhaustive]
 pub enum WindowType {
     #[default]
     Window,
@@ -393,15 +394,15 @@ impl WindowAttributes {
     /// Currently only wayland is using this type. On X11 popups are also just normal windows
     /// Note: If the type is set to `WindowType::Popup` the parent must be set as well with
     /// `with_parent_window()`.
-    pub fn as_type(mut self, window_type: WindowType) -> Self {
+    pub fn with_type(mut self, window_type: WindowType) -> Self {
         self.window_type = window_type;
         self
     }
 
     /// Returns if the window type is a popup or a normal window
     #[inline]
-    pub fn popup(&self) -> bool {
-        self.window_type == WindowType::Popup
+    pub fn window_type(&self) -> WindowType {
+        self.window_type
     }
 }
 
