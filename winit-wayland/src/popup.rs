@@ -15,7 +15,7 @@ use wayland_client::protocol::wl_display::WlDisplay;
 use wayland_protocols::xdg::shell::client::xdg_positioner::{Anchor, Gravity};
 use winit_core::cursor::Cursor;
 use winit_core::error::{NotSupportedError, RequestError};
-use winit_core::event::{Ime, WindowEvent};sd
+use winit_core::event::{Ime, WindowEvent};
 use winit_core::monitor::{Fullscreen, MonitorHandle as CoreMonitorHandle};
 use winit_core::window::{
     CursorGrabMode, ImeCapabilities, ImeRequest, ImeRequestError, ResizeDirection, Theme,
@@ -25,6 +25,9 @@ use winit_core::window::{
 
 #[derive(Debug)]
 pub struct Popup {
+    /// Reference to the underlying SCTK popup
+    popup: SctkPopup,
+
     /// The state of the popup.
     popup_state: Arc<Mutex<WindowState>>,
 
@@ -414,45 +417,43 @@ impl CoreWindow for Popup {
         xdg_activation_token.commit();
     }
 
-    fn set_theme(&self, theme: Option<Theme>) {
-        // self.popup_state.lock().unwrap().set_theme(theme)
+    fn set_theme(&self, _theme: Option<Theme>) {
+        // A popup does not have a frame
     }
 
     fn theme(&self) -> Option<Theme> {
-        // self.popup_state.lock().unwrap().theme()
+        // A popup does not have a frame
         None
     }
 
     fn set_content_protected(&self, _protected: bool) {}
 
     fn set_cursor(&self, cursor: Cursor) {
-        // let popup_state = &mut self.popup_state.lock().unwrap();
+        let popup_state = &mut self.popup_state.lock().unwrap();
 
-        // match cursor {
-        //     Cursor::Icon(icon) => popup_state.set_cursor(icon),
-        //     Cursor::Custom(cursor) => popup_state.set_custom_cursor(cursor),
-        // }
+        match cursor {
+            Cursor::Icon(icon) => popup_state.set_cursor(icon),
+            Cursor::Custom(cursor) => popup_state.set_custom_cursor(cursor),
+        }
     }
 
     fn set_cursor_position(&self, position: Position) -> Result<(), RequestError> {
-        // let scale_factor = self.scale_factor();
-        // let position = position.to_logical(scale_factor);
-        // self.popup_state
-        //     .lock()
-        //     .unwrap()
-        //     .set_cursor_position(position)
-        //     // Request redraw on success, since the state is double buffered.
-        //     .map(|_| self.request_redraw())
-        Err(RequestError::Ignored)
+        let scale_factor = self.scale_factor();
+        let position = position.to_logical(scale_factor);
+        self.popup_state
+            .lock()
+            .unwrap()
+            .set_cursor_position(position)
+            // Request redraw on success, since the state is double buffered.
+            .map(|_| self.request_redraw())
     }
 
     fn set_cursor_grab(&self, mode: CursorGrabMode) -> Result<(), RequestError> {
-        // self.popup_state.lock().unwrap().set_cursor_grab(mode)
-        Err(RequestError::Ignored)
+        self.popup_state.lock().unwrap().set_cursor_grab(mode)
     }
 
     fn set_cursor_visible(&self, visible: bool) {
-        // self.popup_state.lock().unwrap().set_cursor_visible(visible);
+        self.popup_state.lock().unwrap().set_cursor_visible(visible);
     }
 
     fn drag_window(&self) -> Result<(), RequestError> {
@@ -460,52 +461,46 @@ impl CoreWindow for Popup {
         Err(RequestError::Ignored)
     }
 
-    fn drag_resize_window(&self, direction: ResizeDirection) -> Result<(), RequestError> {
-        // TODO: implement
-        // self.popup_state.lock().unwrap().drag_resize_window(direction)
+    fn drag_resize_window(&self, _direction: ResizeDirection) -> Result<(), RequestError> {
+        // Popup does not support dragging
         Err(RequestError::Ignored)
     }
 
-    fn show_window_menu(&self, position: Position) {
-        // let scale_factor = self.scale_factor();
-        // let position = position.to_logical(scale_factor);
-        // self.popup_state.lock().unwrap().show_window_menu(position);
+    fn show_window_menu(&self, _position: Position) {
+        // A popup does not have a menu
     }
 
     fn set_cursor_hittest(&self, hittest: bool) -> Result<(), RequestError> {
-        // let surface = self.window.wl_surface();
+        let surface = self.window.wl_surface();
 
-        // if hittest {
-        //     surface.set_input_region(None);
-        //     Ok(())
-        // } else {
-        //     let region = Region::new(&*self.compositor).map_err(|err| os_error!(err))?;
-        //     region.add(0, 0, 0, 0);
-        //     surface.set_input_region(Some(region.wl_region()));
-        //     Ok(())
-        // }
-        Err(RequestError::Ignored)
+        if hittest {
+            surface.set_input_region(None);
+            Ok(())
+        } else {
+            let region = Region::new(&*self.compositor).map_err(|err| os_error!(err))?;
+            region.add(0, 0, 0, 0);
+            surface.set_input_region(Some(region.wl_region()));
+            Ok(())
+        }
     }
 
     fn current_monitor(&self) -> Option<CoreMonitorHandle> {
-        // let data = self.window.wl_surface().data::<SurfaceData>()?;
-        // data.outputs()
-        //     .next()
-        //     .map(MonitorHandle::new)
-        //     .map(|monitor| CoreMonitorHandle(Arc::new(monitor)))
-        None
+        let data = self.popup.wl_surface().data::<SurfaceData>()?;
+        data.outputs()
+            .next()
+            .map(MonitorHandle::new)
+            .map(|monitor| CoreMonitorHandle(Arc::new(monitor)))
     }
 
     fn available_monitors(&self) -> Box<dyn Iterator<Item = CoreMonitorHandle>> {
-        // Box::new(
-        //     self.monitors
-        //         .lock()
-        //         .unwrap()
-        //         .clone()
-        //         .into_iter()
-        //         .map(|inner| CoreMonitorHandle(Arc::new(inner))),
-        // )
-        Box::new([].into_iter())
+        Box::new(
+            self.monitors
+                .lock()
+                .unwrap()
+                .clone()
+                .into_iter()
+                .map(|inner| CoreMonitorHandle(Arc::new(inner))),
+        )
     }
 
     fn primary_monitor(&self) -> Option<CoreMonitorHandle> {

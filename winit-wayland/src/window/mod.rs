@@ -67,6 +67,7 @@ pub struct Window {
     /// Window requests to the event loop.
     window_requests: Arc<WindowRequests>,
 
+    /// TODO: moving this to state to reuse for the popup
     /// Observed monitors.
     monitors: Arc<Mutex<Vec<MonitorHandle>>>,
 
