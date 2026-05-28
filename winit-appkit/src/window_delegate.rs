@@ -565,8 +565,8 @@ fn new_window(
                     None => NSSize::new(800.0, 600.0),
                 };
                 let position = match attrs.position {
-                    // Popup positions are relative to the parent window, which isn't attached
-                    // yet, so this placeholder is overwritten in `WindowDelegate::new`.
+                    // A popup's position is parent-relative; it's applied in `WindowDelegate::new`
+                    // (after the delegate exists) via the shared translation in `set_outer_position`.
                     _ if is_popup => NSPoint::new(0.0, 0.0),
                     Some(position) => {
                         let position = position.to_logical(scale_factor);
