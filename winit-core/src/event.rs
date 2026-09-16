@@ -1696,6 +1696,7 @@ mod tests {
                 primary: true,
                 position: (0, 0).into(),
                 source: PointerSource::Mouse,
+                history: Default::default(),
             });
             with_window_event(ModifiersChanged(event::Modifiers::default()));
             with_window_event(PointerEntered {
