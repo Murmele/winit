@@ -593,10 +593,10 @@ impl WinitView {
                         force: Option<Force>,
                     ) -> (bool, PointerSource) {
                         let touch_type = touch.r#type();
-                        let touch_id = Retained::as_ptr(&touch) as usize;
+                        let touch_id = Retained::as_ptr(touch) as usize;
                         let finger_id = FingerId::from_raw(touch_id);
                         if let UITouchType::Pencil = touch_type {
-                            let tool_data = _self.tablet_tool_data_for_pencil(&touch);
+                            let tool_data = _self.tablet_tool_data_for_pencil(touch);
                             (true, PointerSource::TabletTool {
                                 kind: TabletToolKind::Pencil,
                                 data: tool_data,
@@ -607,7 +607,7 @@ impl WinitView {
                                 PointerSource::Touch { finger_id, force },
                             )
                         }
-                    };
+                    }
 
                     let (primary, source) = primary_source(self, &touch, force);
 
