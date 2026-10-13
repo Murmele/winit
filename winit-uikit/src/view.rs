@@ -16,10 +16,10 @@ use objc2_ui_kit::{
 };
 use tracing::{debug, debug_span, trace_span};
 use winit_core::event::{
-    ButtonSource, ElementState, EventTime, FingerId, Force, KeyEvent, PointerKind, PointerSource,
-    TabletToolAngle, TabletToolButton, TabletToolData, TabletToolKind, TouchPhase, WindowEvent,
+    ButtonSource, ElementState, EventTime, FingerId, Force, HistoricalMoveEvent, KeyEvent,
+    PointerKind, PointerSource, TabletToolAngle, TabletToolButton, TabletToolData, TabletToolKind,
+    TouchPhase, WindowEvent,
 };
-use winit_core::event_loop::HistoricalMoveEvent;
 use winit_core::keyboard::{Key, KeyCode, KeyLocation, NamedKey, NativeKeyCode, PhysicalKey};
 
 use super::app_state::{self, EventWrapper};

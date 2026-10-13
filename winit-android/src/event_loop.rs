@@ -16,11 +16,13 @@ use winit_core::cursor::{Cursor, CustomCursor, CustomCursorSource};
 use winit_core::error::{
     CreateWindowError, CustomCursorError, EventLoopError, NotSupportedError, RequestError,
 };
-use winit_core::event::{self, DeviceId, FingerId, Force, StartCause, SurfaceSizeWriter};
+use winit_core::event::{
+    self, DeviceId, FingerId, Force, HistoricalMoveEvent, StartCause, SurfaceSizeWriter,
+};
 use winit_core::event_loop::pump_events::PumpStatus;
 use winit_core::event_loop::{
     ActiveEventLoop as RootActiveEventLoop, ControlFlow, DeviceEvents, EventLoopProvider,
-    EventLoopProxy as CoreEventLoopProxy, EventLoopProxyProvider, HistoricalMoveEvent,
+    EventLoopProxy as CoreEventLoopProxy, EventLoopProxyProvider,
     OwnedDisplayHandle as CoreOwnedDisplayHandle,
 };
 use winit_core::monitor::{Fullscreen, MonitorHandle as CoreMonitorHandle};

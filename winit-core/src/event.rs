@@ -13,7 +13,7 @@ use smol_str::SmolStr;
 use crate::Instant;
 use crate::data_transfer::{DataTransferId, TypedData};
 use crate::error::InternalError;
-use crate::event_loop::{AsyncRequestSerial, DndAction, HistoricalMoveEvent};
+use crate::event_loop::{AsyncRequestSerial, DndAction};
 use crate::keyboard::{self, ModifiersKeyState, ModifiersKeys, ModifiersState};
 #[cfg(doc)]
 use crate::window::Window;
@@ -682,6 +682,36 @@ pub enum PointerSource {
         data: TabletToolData,
     },
     Unknown,
+}
+
+/// An intermediate pointer sample that the platform coalesced into a
+/// [`WindowEvent::PointerMoved`] event.
+///
+/// See [`WindowEvent::PointerMoved::history`] for details.
+#[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
+pub struct HistoricalMoveEvent {
+    /// The time at which this sample was taken.
+    pub event_time: EventTime,
+
+    /// (x,y) coordinates in pixels relative to the top-left corner of the window, like
+    /// [`WindowEvent::PointerMoved::position`].
+    pub position: PhysicalPosition<f64>,
+
+    /// The pointer type and its data at the time of this sample, e.g. the touch force or the
+    /// tablet tool's tilt. Identifies the same pointer as the enclosing
+    /// [`WindowEvent::PointerMoved::source`].
+    pub source: PointerSource,
+}
+
+impl HistoricalMoveEvent {
+    pub fn new(
+        event_time: EventTime,
+        position: PhysicalPosition<f64>,
+        source: PointerSource,
+    ) -> Self {
+        Self { event_time, position, source }
+    }
 }
 
 impl From<PointerSource> for PointerKind {
