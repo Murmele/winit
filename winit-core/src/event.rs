@@ -256,7 +256,17 @@ pub enum WindowEvent {
         primary: bool,
 
         source: PointerSource,
-        /// Historical move events between this event and the previous event
+        /// Intermediate samples that the platform coalesced into this event, ordered from oldest
+        /// to newest.
+        ///
+        /// They happened after the previous `PointerMoved` event of the same pointer and before
+        /// this one. The sample reported by this event itself (`position`, `event_time`) is not
+        /// included.
+        ///
+        /// ## Platform-specific
+        ///
+        /// - **Android / iOS:** Filled from the platform's historical / coalesced samples.
+        /// - **Others:** Always empty.
         history: Vec<HistoricalMoveEvent>,
     },
 

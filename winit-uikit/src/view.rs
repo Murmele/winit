@@ -630,8 +630,11 @@ impl WinitView {
                     let historical_events = event
                         .and_then(|event| {
                             event.coalescedTouchesForTouch(&touch).map(|touch_events| {
-                                let mut vec = Vec::with_capacity(touch_events.len());
-                                for touch in touch_events {
+                                // The last coalesced touch is the sample of the main touch
+                                // itself, which is already reported by this event.
+                                let count = touch_events.len().saturating_sub(1);
+                                let mut vec = Vec::with_capacity(count);
+                                for touch in touch_events.iter().take(count) {
                                     let event_time = Duration::from_secs_f64(touch.timestamp());
                                     let source = pointer_source(
                                         self,
