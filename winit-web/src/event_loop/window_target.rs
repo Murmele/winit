@@ -266,34 +266,33 @@ impl ActiveEventLoop {
                 let has_focus = has_focus.clone();
                 let modifiers = self.modifiers.clone();
 
-                move |device_id, events| {
-                    runner.send_events(events.flat_map(
-                        |(active_modifiers, primary, position, source, event_time)| {
-                            let modifiers = (has_focus.get()
-                                && modifiers.get() != active_modifiers)
-                                .then(|| {
-                                    modifiers.set(active_modifiers);
-                                    Event::WindowEvent {
-                                        window_id,
-                                        event: WindowEvent::ModifiersChanged(
-                                            active_modifiers.into(),
-                                        ),
-                                    }
-                                });
-
-                            modifiers.into_iter().chain(iter::once(Event::WindowEvent {
+                move |active_modifiers,
+                      device_id,
+                      primary,
+                      position,
+                      source,
+                      event_time,
+                      history| {
+                    let modifiers =
+                        (has_focus.get() && modifiers.get() != active_modifiers).then(|| {
+                            modifiers.set(active_modifiers);
+                            Event::WindowEvent {
                                 window_id,
-                                event: WindowEvent::PointerMoved {
-                                    device_id,
-                                    event_time,
-                                    primary,
-                                    position,
-                                    source,
-                                    history: Vec::new(),
-                                },
-                            }))
+                                event: WindowEvent::ModifiersChanged(active_modifiers.into()),
+                            }
+                        });
+
+                    runner.send_events(modifiers.into_iter().chain([Event::WindowEvent {
+                        window_id,
+                        event: WindowEvent::PointerMoved {
+                            device_id,
+                            event_time,
+                            primary,
+                            position,
+                            source,
+                            history,
                         },
-                    ));
+                    }]));
                 }
             },
             {

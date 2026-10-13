@@ -13,8 +13,8 @@ use web_sys::{
 };
 use winit_core::error::CreateWindowError;
 use winit_core::event::{
-    ButtonSource, DeviceId, ElementState, EventTime, MouseScrollDelta, PointerKind, PointerSource,
-    SurfaceSizeWriter, WindowEvent,
+    ButtonSource, DeviceId, ElementState, EventTime, HistoricalMoveEvent, MouseScrollDelta,
+    PointerKind, PointerSource, SurfaceSizeWriter, WindowEvent,
 };
 use winit_core::keyboard::{Key, KeyLocation, ModifiersState, PhysicalKey};
 use winit_core::monitor::Fullscreen;
@@ -419,16 +419,13 @@ impl Canvas {
     where
         C: 'static
             + FnMut(
+                ModifiersState,
                 Option<DeviceId>,
-                &mut dyn Iterator<
-                    Item = (
-                        ModifiersState,
-                        bool,
-                        PhysicalPosition<f64>,
-                        PointerSource,
-                        Option<EventTime>,
-                    ),
-                >,
+                bool,
+                PhysicalPosition<f64>,
+                PointerSource,
+                Option<EventTime>,
+                Vec<HistoricalMoveEvent>,
             ),
         B: 'static
             + FnMut(

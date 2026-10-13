@@ -342,6 +342,18 @@ pub fn pointer_move_event(event: PointerEvent) -> impl Iterator<Item = PointerEv
     }
 }
 
+/// The samples the browser coalesced into a `pointermove` event, ordered from oldest to newest.
+///
+/// The last coalesced event is the dispatched event itself, so it is skipped.
+pub fn pointer_move_history(event: &PointerEvent) -> impl Iterator<Item = PointerEvent> {
+    has_coalesced_events_support(event).then(|| event.get_coalesced_events()).into_iter().flat_map(
+        |events| {
+            let count = events.length().saturating_sub(1) as usize;
+            events.into_iter().take(count).map(PointerEvent::unchecked_from_js)
+        },
+    )
+}
+
 // TODO: Remove when Safari supports `getCoalescedEvents`.
 // See <https://bugs.webkit.org/show_bug.cgi?id=210454>.
 pub fn has_coalesced_events_support(event: &PointerEvent) -> bool {

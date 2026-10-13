@@ -269,7 +269,11 @@ pub enum WindowEvent {
         /// ## Platform-specific
         ///
         /// - **Android / iOS:** Filled from the platform's historical / coalesced samples.
+        /// - **Web:** Filled from [`getCoalescedEvents()`]. Empty on browsers that don't support
+        ///   it.
         /// - **Others:** Always empty.
+        ///
+        /// [`getCoalescedEvents()`]: https://developer.mozilla.org/en-US/docs/Web/API/PointerEvent/getCoalescedEvents
         history: Vec<HistoricalMoveEvent>,
     },
 

@@ -4,7 +4,9 @@ use std::time::Duration;
 
 use dpi::PhysicalPosition;
 use web_sys::PointerEvent;
-use winit_core::event::{ButtonSource, DeviceId, ElementState, PointerKind, PointerSource};
+use winit_core::event::{
+    ButtonSource, DeviceId, ElementState, HistoricalMoveEvent, PointerKind, PointerSource,
+};
 use winit_core::keyboard::ModifiersState;
 
 use super::canvas::Common;
@@ -207,16 +209,13 @@ impl PointerHandler {
     ) where
         C: 'static
             + FnMut(
+                ModifiersState,
                 Option<DeviceId>,
-                &mut dyn Iterator<
-                    Item = (
-                        ModifiersState,
-                        bool,
-                        PhysicalPosition<f64>,
-                        PointerSource,
-                        Option<Duration>,
-                    ),
-                >,
+                bool,
+                PhysicalPosition<f64>,
+                PointerSource,
+                Option<Duration>,
+                Vec<HistoricalMoveEvent>,
             ),
         B: 'static
             + FnMut(
@@ -288,17 +287,24 @@ impl PointerHandler {
                 // pointer move event
                 let scale = super::scale_factor(&window);
 
-                cursor_handler(
-                    device_id,
-                    &mut event::pointer_move_event(event).map(|event| {
-                        (
-                            event::mouse_modifiers(&event),
-                            event.is_primary(),
+                let history = event::pointer_move_history(&event)
+                    .filter_map(|event| {
+                        Some(HistoricalMoveEvent::new(
+                            event::event_time(&event)?,
                             event::pointer_position(&event).to_physical(scale),
                             event::pointer_source(&event, kind),
-                            event::event_time(&event),
-                        )
-                    }),
+                        ))
+                    })
+                    .collect();
+
+                cursor_handler(
+                    event::mouse_modifiers(&event),
+                    device_id,
+                    primary,
+                    event::pointer_position(&event).to_physical(scale),
+                    event::pointer_source(&event, kind),
+                    event::event_time(&event),
+                    history,
                 );
             }));
     }
