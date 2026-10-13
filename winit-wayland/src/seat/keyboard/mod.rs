@@ -310,6 +310,9 @@ pub struct KeyboardState {
 
     /// The current repeat raw key.
     pub current_repeat: Option<u32>,
+
+    /// The time of the last emitted key event.
+    pub last_event_time: Option<EventTime>,
 }
 
 impl KeyboardState {
@@ -321,6 +324,7 @@ impl KeyboardState {
             repeat_info: RepeatInfo::default(),
             repeat_token: None,
             current_repeat: None,
+            last_event_time: None,
         }
     }
 }
@@ -387,6 +391,15 @@ fn key_input(
     state: ElementState,
     repeat: bool,
 ) {
+    // Repeat times are extrapolated on our side, so the next event from the compositor (e.g. the
+    // key release) can carry an earlier time than the last synthesized repeat. Clamp to keep the
+    // times monotonic.
+    let event_time = match (event_time, keyboard_state.last_event_time) {
+        (Some(time), Some(last)) => Some(time.max(last)),
+        (time, _) => time,
+    };
+    keyboard_state.last_event_time = event_time.or(keyboard_state.last_event_time);
+
     let window_id = match *data.window_id.lock().unwrap() {
         Some(window_id) => window_id,
         None => return,
