@@ -62,7 +62,6 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
     WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TRANSPARENT, WS_OVERLAPPED, WS_POPUP, WS_VISIBLE,
 };
 use windows_sys::core::BOOL;
-use winit_common::timestamp_handler::TimeStampExtender;
 use winit_core::application::ApplicationHandler;
 use winit_core::cursor::{CustomCursor, CustomCursorSource};
 use winit_core::data_transfer::{
@@ -117,7 +116,6 @@ pub(crate) struct WindowData {
     pub userdata_removed: Cell<bool>,
     pub last_tablet_down_button_state: Cell<u32>,
     pub recurse_depth: Cell<u32>,
-    pub timestamp_extender: Cell<TimeStampExtender>,
 }
 
 impl WindowData {
@@ -131,10 +129,7 @@ impl WindowData {
     }
 
     fn event_time_to_duration(&self, event_time: u32) -> Duration {
-        let mut timestamp_extender = self.timestamp_extender.get();
-        let duration = timestamp_extender.extend_timestamp_millisecond(event_time);
-        self.timestamp_extender.set(timestamp_extender);
-        duration
+        self.event_loop_runner.extend_timestamp(event_time)
     }
 
     fn message_time(&self) -> Option<Duration> {
