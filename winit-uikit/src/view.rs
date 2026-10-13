@@ -601,29 +601,31 @@ impl WinitView {
                     });
                 },
                 UITouchPhase::Moved => {
-                    fn primary_source(
+                    // `finger_id` is passed in instead of derived from `touch`, because the
+                    // coalesced touches are separate `UITouch` objects with their own address.
+                    fn pointer_source(
                         _self: &WinitView,
                         touch: &Retained<UITouch>,
+                        finger_id: FingerId,
                         force: Option<Force>,
-                    ) -> (bool, PointerSource) {
-                        let touch_type = touch.r#type();
-                        let touch_id = Retained::as_ptr(touch) as usize;
-                        let finger_id = FingerId::from_raw(touch_id);
-                        if let UITouchType::Pencil = touch_type {
+                    ) -> PointerSource {
+                        if let UITouchType::Pencil = touch.r#type() {
                             let tool_data = _self.tablet_tool_data_for_pencil(touch);
-                            (true, PointerSource::TabletTool {
+                            PointerSource::TabletTool {
                                 kind: TabletToolKind::Pencil,
                                 data: tool_data,
-                            })
+                            }
                         } else {
-                            (
-                                _self.ivars().primary_finger.get().unwrap() == finger_id,
-                                PointerSource::Touch { finger_id, force },
-                            )
+                            PointerSource::Touch { finger_id, force }
                         }
                     }
 
-                    let (primary, source) = primary_source(self, &touch, force);
+                    let primary = if let UITouchType::Pencil = touch_type {
+                        true
+                    } else {
+                        ivars.primary_finger.get().unwrap() == finger_id
+                    };
+                    let source = pointer_source(self, &touch, finger_id, force);
 
                     let historical_events = event
                         .and_then(|event| {
@@ -631,8 +633,12 @@ impl WinitView {
                                 let mut vec = Vec::with_capacity(touch_events.len());
                                 for touch in touch_events {
                                     let event_time = Duration::from_secs_f64(touch.timestamp());
-                                    let (_, source) =
-                                        primary_source(self, &touch, self.determine_force(&touch));
+                                    let source = pointer_source(
+                                        self,
+                                        &touch,
+                                        finger_id,
+                                        self.determine_force(&touch),
+                                    );
                                     vec.push(HistoricalMoveEvent::new(
                                         event_time,
                                         self.determine_position(&touch),
