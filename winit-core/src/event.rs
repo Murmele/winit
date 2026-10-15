@@ -1859,7 +1859,7 @@ mod tests {
                 delta: 0.0,
                 phase: event::TouchPhase::Started,
             });
-            with_window_event(DoubleTapGesture { device_id: None, event_time: None, });
+            with_window_event(DoubleTapGesture { device_id: None, event_time: None });
             with_window_event(RotationGesture {
                 device_id: None,
                 event_time: None,

@@ -40,6 +40,12 @@ changelog entry.
 
 ## Unreleased
 
+### Added
+
+- Add `EventTime` and `WindowEvent::event_time()`, implemented on Android, iOS, macOS, Wayland,
+  Web, Windows, and X11.
+- Add `HistoricalMoveEvent`, reported in `WindowEvent::PointerMoved::history`.
+
 ### Fixed
 
 - On Windows, fix a crash occurring when trying to create a DXGI surface on a window that is both fullscreen and always on top.
@@ -51,3 +57,15 @@ changelog entry.
 - Removed the `url` dependency from `winit-core`, along with `SendData::from_file_paths`,
   `TypedData::try_as_file_paths` and `impl From<Vec<url::Url>> for SendData`. Use `SendData::Uris`
   / `TypedData::try_as_uris` with `file:` URIs instead.
+- Add an `event_time: Option<EventTime>` field to the `WindowEvent` variants `KeyboardInput`,
+  `PointerMoved`, `PointerEntered`, `PointerLeft`, `MouseWheel`, `PointerButton`, `HoldGesture`,
+  `PinchGesture`, `PanGesture`, `DoubleTapGesture`, `RotationGesture` and `TouchpadPressure`. It
+  holds the time at which the input occurred. The time has no fixed origin, so it can only be
+  compared with other event times from the same event loop.
+  To get the time of any event without matching on it, use `WindowEvent::event_time()`.
+- Add a `history: Vec<HistoricalMoveEvent>` field to `WindowEvent::PointerMoved`. It holds the
+  intermediate samples that the platform coalesced into the event, ordered from oldest to newest.
+  It doesn't include the event's own sample. It is filled on Android, iOS and Web, and is empty on
+  other platforms.
+- On Web, coalesced pointer samples from `getCoalescedEvents()` are now reported in
+  `WindowEvent::PointerMoved::history`, instead of as separate `WindowEvent::PointerMoved` events.
